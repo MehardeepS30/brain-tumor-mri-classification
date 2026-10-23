@@ -1,0 +1,115 @@
+{
+  "cuda_available": true,
+  "device": "NVIDIA GeForce RTX 4070 Laptop GPU",
+  "torch": "2.11.0+cu128",
+  "train_images": 2865,
+  "baseline": {
+    "initial_batch_loss": 1.37,
+    "log": [
+      {
+        "epoch": 1,
+        "stage": "full",
+        "lr": 0.001,
+        "train_loss": 0.9877,
+        "val_loss": 1.4371,
+        "val_macro_recall": 0.3437,
+        "val_recall_glioma": 0.8899,
+        "val_recall_meningioma": 0.4656,
+        "val_recall_notumor": 0.0192,
+        "val_recall_pituitary": 0.0,
+        "grad_norm": 2.3485,
+        "amp_skipped_steps": 0,
+        "trainable_params": 389924,
+        "epoch_seconds": 3.8,
+        "gpu_peak_mb": 662
+      },
+      {
+        "epoch": 2,
+        "stage": "full",
+        "lr": 0.0,
+        "train_loss": 0.8695,
+        "val_loss": 1.2173,
+        "val_macro_recall": 0.408,
+        "val_recall_glioma": 0.8106,
+        "val_recall_meningioma": 0.4427,
+        "val_recall_notumor": 0.3269,
+        "val_recall_pituitary": 0.0519,
+        "grad_norm": 1.848,
+        "amp_skipped_steps": 0,
+        "trainable_params": 389924,
+        "epoch_seconds": 3.5,
+        "gpu_peak_mb": 663
+      }
+    ],
+    "epoch1_head_tensors_moved": "2/2",
+    "epoch1_backbone_tensors_moved": "12/12",
+    "epoch2_backbone_tensors_moved_vs_epoch1": "12/12",
+    "loss_finite": true,
+    "grad_norm_finite_positive": true,
+    "checkpoint_epochs": {
+      "after_interrupt": 1,
+      "after_resume": 2,
+      "best": 2
+    },
+    "scheduler_steps": {
+      "after_interrupt": 20,
+      "after_resume": 40
+    },
+    "resumed_vs_straight_max_abs_diff": 0.0
+  },
+  "efficientnet_b0": {
+    "initial_batch_loss": 1.4639,
+    "log": [
+      {
+        "epoch": 1,
+        "stage": "frozen",
+        "lr": 0.0,
+        "train_loss": 1.2808,
+        "val_loss": 1.1695,
+        "val_macro_recall": 0.5368,
+        "val_recall_glioma": 0.3744,
+        "val_recall_meningioma": 0.3435,
+        "val_recall_notumor": 0.4615,
+        "val_recall_pituitary": 0.9675,
+        "grad_norm": 3.5538,
+        "amp_skipped_steps": 0,
+        "trainable_params": 5124,
+        "epoch_seconds": 8.3,
+        "gpu_peak_mb": 211
+      },
+      {
+        "epoch": 2,
+        "stage": "finetune",
+        "lr": 0.0,
+        "train_loss": 1.1004,
+        "val_loss": 0.9185,
+        "val_macro_recall": 0.6774,
+        "val_recall_glioma": 0.8282,
+        "val_recall_meningioma": 0.2824,
+        "val_recall_notumor": 0.625,
+        "val_recall_pituitary": 0.974,
+        "grad_norm": 3.7949,
+        "amp_skipped_steps": 1,
+        "trainable_params": 4012672,
+        "epoch_seconds": 9.4,
+        "gpu_peak_mb": 1510
+      }
+    ],
+    "epoch1_head_tensors_moved": "2/2",
+    "epoch1_backbone_tensors_moved": "0/211",
+    "epoch2_backbone_tensors_moved_vs_epoch1": "211/211",
+    "loss_finite": true,
+    "grad_norm_finite_positive": true,
+    "checkpoint_epochs": {
+      "after_interrupt": 1,
+      "after_resume": 2,
+      "best": 2
+    },
+    "scheduler_steps": {
+      "after_interrupt": 20,
+      "after_resume": 20
+    },
+    "resumed_vs_straight_max_abs_diff": 0.0
+  },
+  "expected_initial_loss_ln4": 1.3863
+}
