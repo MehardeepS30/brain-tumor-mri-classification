@@ -15,19 +15,33 @@ NORM_MEAN = tuple(_ref.mean)
 NORM_STD = tuple(_ref.std)
 
 
-def crop_to_brain(img, margin=0.05):
-    """Crop to the bounding box of the largest bright connected region, plus `margin`
-    of the box size on each side. The foreground threshold is half the Otsu level, so
-    dim brain tissue still counts as foreground. A blank image is returned unchanged."""
-    gray = np.asarray(img.convert("L"))
-    if gray.max() == gray.min():
-        return img
+MIN_PART = 0.02
+
+
+def head_mask(gray):
+    """Foreground pixels that belong to the head: above half the Otsu level (so dim
+    tissue counts) and in a connected region at least MIN_PART of the largest one.
+    Keeping every sizeable region, not just the largest, matters on real scans where
+    the skull ring is broken or the hemispheres are separated by dark gaps; specks
+    and burned-in text are far smaller and are dropped."""
     mask = gray > 0.5 * threshold_otsu(gray)
     labels, n = ndimage.label(mask)
     if n == 0:
-        return img
+        return mask
     sizes = ndimage.sum(mask, labels, index=range(1, n + 1))
-    ys, xs = np.nonzero(labels == int(np.argmax(sizes)) + 1)
+    keep = np.nonzero(sizes >= MIN_PART * sizes.max())[0] + 1
+    return np.isin(labels, keep)
+
+
+def crop_to_brain(img, margin=0.05):
+    """Crop to the bounding box of the head (see head_mask), plus `margin` of the box
+    size on each side. A blank image is returned unchanged."""
+    gray = np.asarray(img.convert("L"))
+    if gray.max() == gray.min():
+        return img
+    ys, xs = np.nonzero(head_mask(gray))
+    if len(xs) == 0:
+        return img
     x0, x1, y0, y1 = xs.min(), xs.max(), ys.min(), ys.max()
     mx = round((x1 - x0 + 1) * margin)
     my = round((y1 - y0 + 1) * margin)
@@ -55,17 +69,34 @@ class PadToSquare:
         return pad_to_square(img)
 
 
+class ToGray:
+    """Some files are stored as RGB/RGBA/palette; the content is greyscale MRI."""
+
+    def __call__(self, img):
+        return img.convert("L")
+
+
 class ToRGB:
-    """MRI slices are greyscale; the models expect 3 channels (ImageNet layout)."""
+    """The models expect 3 channels (ImageNet layout): replicate the grey channel."""
 
     def __call__(self, img):
         return img.convert("RGB")
 
 
-def build_transforms(train):
+def _deterministic_steps():
+    return [ToGray(), CropToBrain(margin=0.05), PadToSquare(), T.Resize((IMAGE_SIZE, IMAGE_SIZE))]
+
+
+def preprocess_for_cache(img):
+    """The deterministic part of the pipeline: greyscale 224x224, cropped and padded."""
+    return T.Compose(_deterministic_steps())(img)
+
+
+def build_transforms(train, cached=False):
     """Deterministic preprocessing for eval; adds hflip, +-10 deg rotation and
-    +-10% brightness/contrast for training only."""
-    steps = [ToRGB(), CropToBrain(margin=0.05), PadToSquare(), T.Resize((IMAGE_SIZE, IMAGE_SIZE))]
+    +-10% brightness/contrast for training only. With cached=True the input is
+    already the output of preprocess_for_cache, so those steps are skipped."""
+    steps = ([] if cached else _deterministic_steps()) + [ToRGB()]
     if train:
         steps += [
             T.RandomHorizontalFlip(p=0.5),

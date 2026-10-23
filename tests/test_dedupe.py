@@ -7,12 +7,17 @@ import pytest
 from PIL import Image, ImageDraw
 
 from brain_tumor.dedupe import (
+    aligned_corr,
+    aligned_ssim,
     distance_histogram,
     group_duplicates,
     hamming,
     label_conflicts,
     near_pairs,
+    near_pairs_invariant,
     phash64,
+    phash_variants,
+    representatives,
     sha256_file,
 )
 
@@ -67,6 +72,26 @@ def test_hamming_counts_differing_bits():
     assert hamming(2**64 - 1, 0) == 64
 
 
+def test_phash_variants_are_the_eight_flips_and_rotations():
+    img = _scan(0)
+    v = phash_variants(img)
+    assert len(v) == 8 and v[0] == phash64(img)
+    assert phash64(img.transpose(Image.Transpose.FLIP_LEFT_RIGHT)) in v
+
+
+@pytest.mark.parametrize(
+    "op",
+    [Image.Transpose.FLIP_LEFT_RIGHT, Image.Transpose.FLIP_TOP_BOTTOM, Image.Transpose.ROTATE_90],
+)
+def test_invariant_pairs_catch_flipped_or_rotated_copies(op):
+    imgs = [_scan(s) for s in range(6)]
+    imgs.append(_jpeg_roundtrip(imgs[2].transpose(op), quality=80))  # index 6
+    plain = [phash64(i) for i in imgs]
+    assert hamming(plain[2], plain[6]) > 12  # plain pHash misses it
+    pairs = near_pairs_invariant([phash_variants(i) for i in imgs], max_dist=6)
+    assert {(i, j) for i, j, _ in pairs} == {(2, 6)}
+
+
 # ---------------------------------------------------------------- pairs / histogram
 
 
@@ -115,6 +140,28 @@ def test_exact_sha_matches_are_grouped_even_if_phash_differs():
 def test_singletons_get_distinct_group_ids():
     groups = group_duplicates([0, 2**32 - 1, 2**64 - 1], shas=["a", "b", "c"], threshold=6)
     assert len(set(groups)) == 3
+
+
+def test_aligned_ssim_is_high_for_flipped_copy_and_low_for_unrelated():
+    a = _scan(0)
+    flipped = _jpeg_roundtrip(a.transpose(Image.Transpose.FLIP_LEFT_RIGHT), quality=80)
+    assert aligned_ssim(a, flipped) > 0.9
+    assert aligned_ssim(a, _scan(1)) < 0.7
+
+
+def test_aligned_corr_ignores_contrast_change_and_flip_but_not_content():
+    a = _scan(0)
+    arr = np.asarray(a, dtype=np.float64) * 0.6  # contrast change, background stays black
+    b = Image.fromarray(arr.astype(np.uint8)).transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+    assert aligned_corr(a, b) > 0.99
+    assert aligned_corr(a, _scan(1)) < 0.9
+
+
+def test_representatives_keep_one_largest_image_per_group():
+    groups = [0, 0, 1, 2, 2, 2]
+    pixels = [100, 400, 50, 10, 30, 30]
+    keep = representatives(groups, pixels)
+    assert keep == [False, True, True, False, True, False]  # ties -> first
 
 
 def test_label_conflicts_lists_groups_with_more_than_one_label():

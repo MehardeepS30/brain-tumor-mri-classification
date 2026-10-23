@@ -10,9 +10,11 @@ from torchvision.models import EfficientNet_B0_Weights
 from brain_tumor.transforms import (
     NORM_MEAN,
     NORM_STD,
+    ToRGB,
     build_transforms,
     crop_to_brain,
     pad_to_square,
+    preprocess_for_cache,
 )
 
 
@@ -65,6 +67,34 @@ def test_crop_keeps_whole_brain_and_tumour_but_drops_corner_speck():
     assert (out > 200).sum() > 400  # tumour pixels survived
     # speck at (5,5) was far from the brain, so it is gone
     assert out.shape[1] < 400 * 0.7
+
+
+def _ring_scan():
+    """Real-scan failure case: a bright skull ring separated from the brain by a
+    dark gap, brain split into two hemispheres, tumour in one, and a corner speck."""
+    img = Image.new("L", (300, 300), 0)
+    d = ImageDraw.Draw(img)
+    for start in (0, 90, 180, 270):  # skull ring broken into four arcs
+        d.arc((40, 30, 260, 270), start + 10, start + 80, fill=220, width=8)
+    d.ellipse((62, 52, 147, 248), fill=100)  # left hemisphere
+    d.ellipse((153, 52, 238, 248), fill=100)  # right hemisphere (slightly smaller)
+    d.ellipse((190, 120, 230, 160), fill=240)  # tumour in the right one
+    d.rectangle((2, 2, 5, 5), fill=255)
+    return img, None
+
+
+def test_crop_keeps_skull_ring_and_both_hemispheres():
+    img, _ = _ring_scan()
+    src = np.asarray(img).copy()
+    src[:10, :10] = 0  # extent of the head alone, without the speck
+    x0, y0, x1, y1 = _bright_bbox(src, thr=50)
+    out = crop_to_brain(img, margin=0.05)
+    arr = np.asarray(out)
+    bx0, by0, bx1, by1 = _bright_bbox(arr, thr=50)
+    assert (bx1 - bx0 + 1) == pytest.approx(x1 - x0 + 1, abs=1)
+    assert (by1 - by0 + 1) == pytest.approx(y1 - y0 + 1, abs=1)
+    assert (arr > 235).sum() > 0.8 * np.pi * 20 * 20  # tumour kept
+    assert out.width < 290  # speck still excluded
 
 
 def test_crop_margin_is_five_percent_of_brain_box():
@@ -152,6 +182,21 @@ def test_train_transform_has_the_agreed_augmentations_only():
     assert tuple(cj.brightness) == pytest.approx((0.9, 1.1))
     assert tuple(cj.contrast) == pytest.approx((0.9, 1.1))
     assert cj.saturation is None and cj.hue is None
+
+
+def test_cached_eval_pipeline_matches_full_pipeline():
+    img, _ = _synthetic_scan()
+    cached = preprocess_for_cache(img)
+    assert cached.size == (224, 224) and cached.mode == "L"
+    full = build_transforms(train=False)(img)
+    from_cache = build_transforms(train=False, cached=True)(cached)
+    assert torch.allclose(full, from_cache, atol=1e-6)
+
+
+def test_cached_train_pipeline_has_only_augmentation_and_tensor_steps():
+    tf = build_transforms(train=True, cached=True)
+    kinds = [type(t) for t in tf.transforms]
+    assert kinds == [ToRGB, T.RandomHorizontalFlip, T.RandomRotation, T.ColorJitter, T.ToTensor, T.Normalize]
 
 
 def test_train_transform_is_actually_random():
