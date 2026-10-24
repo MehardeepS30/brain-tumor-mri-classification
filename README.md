@@ -1,5 +1,7 @@
 # Brain tumour MRI classification: a scratch CNN vs EfficientNet-B0, with Grad-CAM
 
+[![tests](https://github.com/Mehardeep30/brain-tumor-mri-classification/actions/workflows/tests.yml/badge.svg)](https://github.com/Mehardeep30/brain-tumor-mri-classification/actions/workflows/tests.yml) ![Python 3.13](https://img.shields.io/badge/python-3.13-blue) ![PyTorch 2.11](https://img.shields.io/badge/PyTorch-2.11-ee4c2c) [![License: MIT](https://img.shields.io/badge/code%20license-MIT-green)](LICENSE) [![Data: CC BY 4.0](https://img.shields.io/badge/data-CC%20BY%204.0-lightgrey)](https://creativecommons.org/licenses/by/4.0/)
+
 This project classifies 2D brain MRI slices into **glioma, meningioma, pituitary tumour, or no tumour**. It compares a small CNN trained from scratch with an ImageNet-pretrained EfficientNet-B0 fine-tuned in two stages. Recall is the main metric, because a missed tumour is the costly error. Grad-CAM is used to check where each model's evidence sits in the image.
 
 Most of the work went into making the evaluation trustworthy: removing duplicates, preventing leakage between splits, and measuring a resolution/source shortcut that is still present in the final models.
@@ -12,6 +14,14 @@ Most of the work went into making the evaluation trustworthy: removing duplicate
 |---|---|---|---|
 | Baseline CNN | 0.803 (0.769–0.832) | 0.799 | 41 / 509 |
 | EfficientNet-B0 | **0.916 (0.893–0.940)** | **0.922** | **10 / 509** |
+
+**Per-class test recall:** glioma 0.761 → 0.947, meningioma 0.654 → 0.862, no tumour 0.854 → 0.922, pituitary 0.941 → 0.935 (baseline → EfficientNet-B0).
+
+**Documentation:**
+- [`docs/model_card.md`](docs/model_card.md): intended use, performance and risks.
+- [`docs/data_validation_report.md`](docs/data_validation_report.md): the data audit.
+- [`docs/training_results.md`](docs/training_results.md): the training and test write-up.
+- [`CHANGELOG.md`](CHANGELOG.md): release notes.
 
 Contents:
 
@@ -31,6 +41,7 @@ Contents:
 14. [Repository structure and reproducibility](#14-repository-structure-and-reproducibility)
 15. [Limitations](#15-limitations)
 16. [Future work](#16-future-work)
+17. [Licensing and attribution](#licensing-and-attribution)
 
 ---
 
@@ -43,12 +54,25 @@ Contents:
 
 Everything is a Python package (`src/brain_tumor/`) with `pytest` tests and one script per stage (`scripts/`), driven by JSON configs (`configs/`).
 
+```mermaid
+flowchart LR
+    A[Kaggle zip<br/>7,200 images] --> B[scan_raw<br/>decode, hash]
+    B --> C[duplicate_study<br/>flip-aware pHash,<br/>SSIM, correlation]
+    C --> D[build_manifest<br/>remove copies, drop label<br/>conflicts, group, split]
+    D --> E[preprocessing_check<br/>crop audit, cache]
+    E --> F[train<br/>Baseline CNN /<br/>EfficientNet-B0]
+    F --> G[evaluate<br/>val + test metrics]
+    F --> H[gradcam_report<br/>Grad-CAM figures]
+```
+
 ## 2. Dataset and classes
 
 - **Source:** Kaggle, [`masoudnickparvar/brain-tumor-mri-dataset`](https://www.kaggle.com/datasets/masoudnickparvar/brain-tumor-mri-dataset), files dated 2026-02-13.
 - **Zip SHA-256:** `882817250048c78ef7a759cf23e540d7b581f2327b16663c9d3db12f5d2ffdb4`.
 - **Contents:** 7,200 images (`Training/` 4 × 1,400 and `Testing/` 4 × 400), all decodable.
 - **Format:** 447 distinct image sizes, 70% of them 512×512.
+- **Origin:** according to its Kaggle description, the dataset combines the figshare, SARTAJ and Br35H collections, and all "no tumour" images come from Br35H. This is relevant to the source shortcut in [section 12](#12-resolutionsource-shortcut-and-failure-modes).
+- **Licence:** CC BY 4.0 (see [Licensing and attribution](#licensing-and-attribution)). The images are not redistributed here; the figures in `reports/` show processed examples with attribution.
 
 The class mapping is fixed in `src/brain_tumor/classes.py` and matches the folder names:
 
@@ -67,7 +91,7 @@ The raw files in `data/raw/` are never modified; they are extracted once and mar
 
 **What was found:**
 - **Flipped and rotated copies.** Perceptual hashing (pHash) is not flip-invariant, so each image is hashed in all 8 flips/rotations and the smallest distance is used. Of the 10,039 pairs at distance 0, 8,109 were only found this way.
-- **Re-encoded copies across Kaggle's own split.** No file is byte-identical across `Training/` and `Testing/`, yet **989 of Kaggle's 1,600 test images have a near-exact copy in its training folder**, and 1,414 have a copy or closely related image. Results on the original split are therefore optimistic.
+- **Re-encoded copies across Kaggle's own split.** The dataset description states that duplicates and train/test overlap were removed, and indeed no file is byte-identical across `Training/` and `Testing/`. Yet **989 of Kaggle's 1,600 test images have a near-exact copy in its training folder**, and 1,414 have a copy or closely related image. Results on the original split are therefore optimistic.
 - **The planned pHash ≤ 6 threshold was rejected.** It chains unrelated images into one 1,688-image group. Also, 12.5% of pairs at distance 6 carry different labels; true copies almost never do, while random pairs differ in label 75% of the time.
 
 **Rules applied** (`scripts/build_manifest.py`, evidence in [`duplicate_threshold_evidence.png`](reports/data/duplicate_threshold_evidence.png)):
@@ -317,24 +341,35 @@ No model, threshold or preprocessing step was changed after looking at test resu
 
 ## 13. Setup and commands
 
-Tested on Windows 11 with Python 3.13.5, PyTorch 2.11.0+cu128 and an RTX 4070 Laptop GPU (8 GB). Peak memory is 0.7 GB for the baseline and 1.5 GB for EfficientNet.
+Tested on Windows 11 with Python 3.13.5, PyTorch 2.11.0+cu128 and an RTX 4070 Laptop GPU (8 GB). Peak memory is 0.7 GB for the baseline and 1.5 GB for EfficientNet. The test suite also runs on CPU (Linux) in CI.
+
+### Install
 
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install torch==2.11.0 torchvision==0.26.0 --index-url https://download.pytorch.org/whl/cu128
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\Activate.ps1      # so `python` below is the venv's interpreter
+.\.venv\Scripts\Activate.ps1
+python -m pip install torch==2.11.0 torchvision==0.26.0 --index-url https://download.pytorch.org/whl/cu128
+python -m pip install -r requirements.txt
+python -m pip install -e . --no-deps      # makes `brain_tumor` importable by the scripts
 ```
 
-Kaggle credentials go in `%USERPROFILE%\.kaggle\kaggle.json` (from kaggle.com, Settings, "Create Legacy API Key"). The newer `KAGGLE_API_TOKEN` environment variable or `~/.kaggle/access_token` also works.
+- **Other platforms:** on Linux or macOS, activate with `source .venv/bin/activate`.
+- **CPU-only:** use the PyTorch CPU index (`https://download.pytorch.org/whl/cpu`) instead.
+- **Dependencies:** `requirements.txt` pins the exact versions used for the reported results.
 
-The scripts import the package from `src/`, so set `PYTHONPATH` once per shell (`pytest` handles this through `pyproject.toml`):
+### Run the tests
 
 ```powershell
-$env:PYTHONPATH = "src"
+python -m pytest
 ```
 
-**Full workflow,** run from the repository root:
+All tests use synthetic images, apart from `tests/test_gradcam_analysis.py::test_gradcam_on_saved_checkpoint`. That test runs Grad-CAM on the two trained checkpoints and the cached test images, and skips itself when they are absent, as in CI.
+
+### Reproduce the workflow
+
+Kaggle credentials go in `%USERPROFILE%\.kaggle\kaggle.json` (kaggle.com, Settings, "Create Legacy API Key"). The newer `KAGGLE_API_TOKEN` environment variable or `~/.kaggle/access_token` also works. Never commit credentials.
+
+Run from the repository root:
 
 ```powershell
 python scripts/download_data.py          # zip -> data/zip (+SHA256SUMS), extract -> data/raw (read-only)
@@ -347,23 +382,45 @@ python scripts/train.py configs/baseline.json
 python scripts/train.py configs/efficientnet_b0.json
 python scripts/evaluate.py outputs/baseline outputs/efficientnet_b0         # -> reports/results
 python scripts/gradcam_report.py outputs/baseline outputs/efficientnet_b0   # -> reports/gradcam
-python -m pytest
 ```
 
-Training notes:
+- **Rebuilt split:** the rebuilt `data/manifest.csv` should match the released one; compare their SHA-256 values.
 - **Resuming:** `python scripts/train.py configs/baseline.json --resume` continues from `last.pt`.
 - **Overrides:** any config field can be overridden on the command line, for example `--epochs 2 --out_dir outputs/try`.
-- **Runtime:** a full baseline run took about 11 minutes and EfficientNet about 7 minutes on the laptop GPU.
-- **Grad-CAM report:** `gradcam_report.py` asserts that the checkpoints reproduce the confusion matrices saved in `metrics.json` before it draws anything.
+- **Runtime:** a full run took about 11 minutes for the baseline and 7 minutes for EfficientNet.
+- **Overwrites:** `evaluate.py` and `gradcam_report.py` overwrite the files in `reports/`. `gradcam_report.py` first asserts that the checkpoints reproduce the confusion matrices saved in `metrics.json`.
+
+### Use the released checkpoints
+
+The two selected checkpoints are attached to the [v1.0.0 release](../../releases/tag/v1.0.0), not stored in git. The release also includes the exact split (`manifest.csv`) and `SHA256SUMS`.
+
+| Asset | Size | Selected at | SHA-256 |
+|---|---|---|---|
+| `baseline_best.pt` | 4.7 MB | epoch 36 | `a9a8727d5b4587cc35c82916124e7e476fadc35e14048c006060dc20a715f624` |
+| `efficientnet_b0_best.pt` | 48.6 MB | epoch 15 | `1d9a45e1d20338f1435760683faf23c2d4d8bb2683eff46a2277c70573a83f11` |
+| `manifest.csv` | 0.6 MB | – | `018e9e9c69fdfcaea54ba6e3dca3a213aa8fb4e181417e682089c477f9173958` |
+
+- **Placement:** put the checkpoints at `outputs/baseline/best.pt` and `outputs/efficientnet_b0/best.pt`, and the manifest at `data/manifest.csv`.
+- **Size:** each checkpoint also contains its optimiser, scheduler and config state, which is why they are larger than the bare weights.
+- **Safety:** checkpoints are loaded with `torch.load(..., weights_only=False)`, which runs pickle code. Verify the checksum first, and only load files from this release.
+
+```python
+from brain_tumor.evaluate import load_selected_model
+model, ckpt = load_selected_model("outputs/efficientnet_b0", "cpu")   # eval mode; ckpt["epoch"] == 15
+```
+
+Running `evaluate.py` or `gradcam_report.py` with these checkpoints also needs the cached test images. Build them with the data steps above.
 
 ## 14. Repository structure and reproducibility
 
 ```
+.github/workflows/  tests.yml: pytest on CPU for every push to main and every pull request
 configs/            baseline.json, efficientnet_b0.json
 src/brain_tumor/    classes, download, dedupe, splits, transforms, dataset, models, train, evaluate, gradcam
 scripts/            one script per stage (section 13)
 tests/              pytest suite (104 tests)
-docs/               data_validation_report.md, training_results.md, stage1_verification_and_part3_plan.md
+docs/               model_card.md, data_validation_report.md, training_results.md,
+                    stage1_verification_and_part3_plan.md (design-stage record)
 reports/data/       duplicate evidence, crop grids/audit, image sizes, conflicts, split statistics
 reports/results/    metrics.json, confusion matrices, ROC curves, learning curves, size breakdown
 reports/gradcam/    Grad-CAM figures, per-image map statistics, summary.json
@@ -371,23 +428,24 @@ reports/smoke_test.json
 data/ outputs/      git-ignored: raw data, manifest, cache, checkpoints and logs
 ```
 
-- **Not in git:** the large and regenerable files (`data/`, `outputs/`, `*.pt`), listed in `.gitignore`. `data/manifest.csv` records each image's split, hashes, duplicate group and copy cluster, so the split can be checked or reused.
+- **Not in git:** the dataset, cache, checkpoints and logs (`data/`, `outputs/`, `*.pt`, listed in `.gitignore`). The validated reports and figures are committed.
 - **Determinism:**
   - The splits use seed 42, and the pipeline is deterministic given the same zip, which the recorded SHA-256 identifies.
   - Training re-seeds each epoch, and the selected epoch numbers are stored in the checkpoints.
   - On a different GPU or library version, retraining will give close but not identical weights.
-- **Selected checkpoints:** `outputs/baseline/best.pt` (epoch 36) and `outputs/efficientnet_b0/best.pt` (epoch 15). Both were selected on validation macro recall, and the test split was used only for the final evaluation and the post-hoc analysis above.
+- **Model selection:** both checkpoints were selected on validation macro recall. The test split was used only for the final evaluation, and afterwards for the post-hoc analysis in sections 11–12.
 
 ## 15. Limitations
 
-- **The data are public, web-collected 2D MRI slices** from several sources, without clinical metadata, and include at least one image that appears to be CT-like.
-- **Patient IDs are unavailable, so patient-level separation cannot be guaranteed.** Related-image grouping reduces image-level leakage, but it cannot rule out the same patient appearing in different splits, for example through dissimilar slices of one scan.
+- **Not for clinical use.** The models are not intended for diagnosis, screening or treatment decisions. These results do not establish clinical reliability, and there has been **no external or clinical validation**.
+- **The data are public, web-collected 2D MRI slices** from several sources, without clinical metadata. At least one image appears to be CT-like.
+- **Patient IDs are unavailable, so patient-level separation cannot be guaranteed.** Related-image grouping reduces image-level leakage, but it cannot rule out the same patient in different splits, for example through dissimilar slices of one scan.
 - **Labels may contain residual noise.** 23 images filed under two labels were found and removed; others may remain.
-- **Image source and resolution remain associated with the class labels.** Both models, especially the baseline, miss small tumour images far more often (section 12).
+- **Image source and resolution remain associated with the class labels.** Both models, especially the baseline, miss small tumour images far more often. EfficientNet-B0 calls 6 of 42 small tumour images "no tumour", against 4 of 467 large ones (section 12).
 - **One training seed and one final split were used.**
 - **The bootstrap confidence intervals** cover test-set sampling only. They do not capture variation across training runs, alternative splits, or the dataset biases above.
-- **Grad-CAM observations are qualitative,** based on a selection of examples and coarse location statistics without lesion masks. They show where evidence is concentrated, not what the model has learned.
-- **These results do not establish clinical reliability or suitability for medical diagnosis.**
+- **The test split is no longer independent.** It was examined during the post-hoc error analysis (Grad-CAM and the size breakdown). It should not be used to select or tune future model variants.
+- **Grad-CAM has limits.** The observations are qualitative, based on selected examples and coarse location statistics without lesion masks. Grad-CAM at a 7×7 or 14×14 layer is spatially coarse, and it shows where class evidence is concentrated, not what the model has learned or why it decided.
 
 ## 16. Future work
 
@@ -399,3 +457,11 @@ Each of these would need its own validation protocol: decisions made on validati
 - **External test set** from a different institution or dataset, ideally with patient IDs.
 - **Lesion masks** (for example from a segmentation dataset) for a quantitative Grad-CAM localisation check, such as a pointing game.
 - **Calibration and threshold analysis** for the "no tumour" decision, chosen on validation data.
+
+Issues and pull requests are welcome. Changes that affect data, training or evaluation should keep `python -m pytest` passing and must not reuse the current test split for model selection.
+
+## Licensing and attribution
+
+- **Code and documentation:** [MIT](LICENSE). The MIT licence does not cover the dataset, the image-derived figures, or the pretrained and fine-tuned weights described below.
+- **Dataset:** [Brain Tumor MRI Dataset](https://www.kaggle.com/datasets/masoudnickparvar/brain-tumor-mri-dataset) by Masoud Nickparvar, licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). It is compiled from the [figshare brain tumour dataset](https://figshare.com/articles/dataset/brain_tumor_dataset/1512427), the [SARTAJ dataset](https://www.kaggle.com/sartajbhuvaji/brain-tumor-classification-mri) and [Br35H](https://www.kaggle.com/datasets/ahmedhamada0/brain-tumor-detection). The dataset is not included in this repository. The figures in `reports/` contain cropped, resized and colour-overlaid derivatives of its images.
+- **Pretrained weights:** EfficientNet-B0 starts from torchvision's `IMAGENET1K_V1` weights. torchvision notes that pretrained weights may carry their own licences or terms, derived from the data they were trained on (ImageNet). The released EfficientNet-B0 checkpoint is derived from those weights and from the dataset above. Check those terms before using it beyond research or education.

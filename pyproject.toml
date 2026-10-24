@@ -4,9 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "brain_tumor"
-version = "0.1.0"
-description = "Brain tumor MRI classification (scratch CNN vs EfficientNet-B0) with Grad-CAM"
+version = "1.0.0"
+description = "Brain tumour MRI classification (scratch CNN vs EfficientNet-B0) with leakage-aware data cleaning and Grad-CAM"
+readme = "README.md"
 requires-python = ">=3.11"
+authors = [{ name = "Mehardeep Singh" }]
+# Pinned dependencies live in requirements.txt (PyTorch comes from its own wheel index),
+# so the package is installed with `pip install -e . --no-deps`.
 
 [tool.setuptools.packages.find]
 where = ["src"]

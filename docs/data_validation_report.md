@@ -4,17 +4,17 @@
 
 Everything below was measured on the real download. Figures and tables are in `reports/data/`, the smoke-test output is in `reports/smoke_test.json`, and the scripts are in `scripts/`, run in this order: `scan_raw.py` → `duplicate_study.py` → `build_manifest.py` → `preprocessing_check.py` → `smoke_test.py`. The test split was not used for any decision.
 
-## Decisions for you
+## Decisions taken at this stage
 
-1. **Accept the new duplicate rule** (section 3). The planned rule, pHash distance ≤ 6, does not work on this data: it misses flipped copies and chains unrelated images together.
-2. **Add resolution-jitter augmentation** (section 5). Image size alone predicts the class far above chance, mostly for "no tumour". My recommendation is a random down-then-up resize in training.
-3. **Approve the full training run** (section 7).
+1. **A new duplicate rule** (section 3) replaced the planned pHash ≤ 6 threshold, which misses flipped copies and chains unrelated images together.
+2. **Resolution-jitter augmentation was added** (section 5), because image size alone predicts the class far above chance, mostly for "no tumour".
+3. **Full training went ahead** after this report was reviewed (results in `docs/training_results.md`).
 
 ## 1. Download and raw files
 
 | | |
 |---|---|
-| Source | Kaggle `masoudnickparvar/brain-tumor-mri-dataset` (your message said `masoudnickvar`, which I took to be a typo), files dated 2026-02-13 |
+| Source | Kaggle `masoudnickparvar/brain-tumor-mri-dataset` files dated 2026-02-13 |
 | Zip SHA-256 | `882817250048c78ef7a759cf23e540d7b581f2327b16663c9d3db12f5d2ffdb4` (164,670,110 bytes) |
 | Files | 7,200: Training 4 × 1,400, Testing 4 × 400. 7,196 JPEG, 4 PNG |
 | Unreadable / unknown folders | 0 / 0 (every file fully decoded) |
@@ -93,9 +93,9 @@ Crop audit over all 4,093 kept images, where "foreground" means pixels above hal
 - Only 4 images lose more than 5% of their foreground, and in each case the lost part is text, not head.
 - Grids of 20 random images per class show the original with the box next to the model input: `crop_grid_{glioma,meningioma,notumor,pituitary}.png`. Padding to a square before resizing keeps the aspect ratio. The augmented-sample grid is `augmentation_grid.png`.
 
-**A shortcut risk I'd like your decision on:** a random forest that sees only width, height and aspect ratio reaches **0.47 validation macro recall**, against 0.25 for chance. The 224×224 resize hides the size itself, but small source images stay blurrier after upscaling, and most of them are "no tumour". A CNN could learn "blurry means no tumour".
-- **Recommended:** add a training-only resolution jitter (with probability 0.5, downscale to 35–100% and resize back) so sharpness stops predicting the class. In evaluation I would also report recall separately for originally small and large images, and look at Grad-CAM on small "no tumour" images.
-- **Alternative:** leave preprocessing as it is and only document the risk.
+**A shortcut risk:** a random forest that sees only width, height and aspect ratio reaches **0.47 validation macro recall**, against 0.25 for chance. The 224×224 resize hides the size itself, but small source images stay blurrier after upscaling, and most of them are "no tumour". A CNN could learn "blurry means no tumour".
+- **Adopted:** a training-only resolution jitter (with probability 0.5, downscale to 35–100% and resize back) so sharpness stops predicting the class. Evaluation also reports recall separately for originally small and large images, and Grad-CAM examines small images.
+- **Rejected alternative:** leave preprocessing as it is and only document the risk.
 
 **Cache:** the deterministic steps (greyscale, crop, pad, resize to 224) are cached as PNGs under `data/processed/`. On 200 sampled images, the cached and uncached eval tensors differ by a maximum of 0.0.
 
@@ -122,11 +122,10 @@ Two problems came up and are fixed:
 
 From the 20-batch timings I estimate about 15 s per full baseline epoch and about 35 s per EfficientNet epoch. That makes the planned full runs (40 and 30 epochs, at most) roughly 10 and 20 minutes. This is an estimate, not a measurement.
 
-The training loop has its own tests (`tests/test_train.py`). They cover the macro-recall metric, train-only class weights, that the test split is never read, the checkpoint files, bit-exact resume and EfficientNet's freeze-then-unfreeze stages. **The full suite is 92 tests, all passing.**
+The training loop has its own tests (`tests/test_train.py`). They cover the macro-recall metric, train-only class weights, that the test split is never read, the checkpoint files, bit-exact resume and EfficientNet's freeze-then-unfreeze stages. **At this stage the full suite was 92 tests, all passing.**
 
-## 7. Still open
+## 7. Open points at this stage
 
-- **Full training:** waiting for your approval. The configs are ready: `configs/baseline.json` and `configs/efficientnet_b0.json`.
-- **Resolution jitter:** waiting for your decision (section 5).
+- **Full training and resolution jitter:** both were approved after this report; see `docs/training_results.md`.
 - **Patient IDs:** patient-level leakage cannot be ruled out, only reduced. The README will state this.
 - **Fewer images than expected:** the kept dataset is 43% smaller than the download, and "no tumour" fell the most (1,800 → 689). The class weights compensate in the loss, and the per-class recall will show whether it is enough.

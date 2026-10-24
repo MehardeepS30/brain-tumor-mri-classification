@@ -1,6 +1,6 @@
 # Training and test results
 
-Both models were trained with the approved Part 3 plan plus resolution jitter. In each run, the checkpoint picked on **validation** macro recall was evaluated once on the untouched **test** split. Figures are in `reports/results/`, raw numbers in `reports/results/metrics.json`, and per-epoch logs in `outputs/<model>/log.csv`.
+Both models were trained with the Part 3 plan (`docs/stage1_verification_and_part3_plan.md`) plus resolution jitter. In each run, the checkpoint picked on **validation** macro recall was evaluated once on the untouched **test** split. Figures are in `reports/results/`, raw numbers in `reports/results/metrics.json`, and per-epoch logs in `outputs/<model>/log.csv`.
 
 > These are classification metrics on one public dataset of web-collected MRI slices. They say nothing about clinical reliability. The test images come from the same sources as the training images; there is no external, prospective or patient-level validation; and patient identity cannot be controlled (see Limitations).
 
@@ -80,8 +80,6 @@ Recall by class and original size, on test:
 - **One seed, one split.** Each confidence interval reflects test-set sampling only, not variation between training runs.
 - **No clinical claim.** These are 2D slices from a curated public dataset without clinical metadata. None of these numbers supports use in diagnosis.
 
-## 6. Next steps (Part 4)
+## 6. Follow-up
 
-- **Grad-CAM** for both models on `features[-1]`, checking whether the heatmaps land on the tumour or on borders, text and artifacts. The small "no tumour" images and the 10 missed tumours should be looked at first.
-- **The README** comparing the two models.
-- **Optional:** a no-jitter ablation, and 3 seeds per model.
+The Grad-CAM analysis of these checkpoints, including the 10 missed tumours, is in the README ([section 11](../README.md#11-grad-cam) and [section 12](../README.md#12-resolutionsource-shortcut-and-failure-modes)). Open experiments, such as a no-jitter ablation and more seeds, are listed under future work there.

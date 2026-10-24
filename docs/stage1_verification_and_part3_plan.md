@@ -1,5 +1,7 @@
 # Parts 1–2 verification and the proposed Part 3 training plan
 
+> Design-stage record, written before any real data was downloaded. The plan was approved and used with one addition (resolution jitter); final results are in `docs/training_results.md`.
+
 ## 1. What was run
 
 `pytest` on the project venv (Python 3.13, torch 2.11.0+cu128): **75 passed, 0 failed, no warnings** (commit `b1a5d8e`).
@@ -85,7 +87,7 @@ $$
 \text{macro recall} = \frac{1}{4}\sum_{c} \frac{TP_c}{TP_c + FN_c}
 $$
 
-Recall is what you said matters, because a missed tumour is the costly error, and macro averaging stops a strong class from hiding a weak one. Ties are broken by lower validation loss. I also log per-class recall every epoch, so a model that trades glioma recall for no-tumour recall is visible.
+Recall is the priority, because a missed tumour is the costly error, and macro averaging stops a strong class from hiding a weak one. Ties are broken by lower validation loss. Per-class recall is also logged every epoch, so a model that trades glioma recall for no-tumour recall is visible.
 
 **Early stopping** on the same metric, with a minimum improvement of 0.002 to count as progress.
 
@@ -93,6 +95,6 @@ Recall is what you said matters, because a missed tumour is the costly error, an
 
 **Reproducibility:** fixed seeds for Python, NumPy and torch, the split read from `manifest.csv`, and the config saved next to every checkpoint.
 
-**Speed:** the crop/pad/resize step is deterministic, so I'll cache its output once and apply only the random augmentation per epoch. I expect a baseline epoch in well under a minute on your GPU, but I'll measure it on the first run rather than guess.
+**Speed:** the crop/pad/resize step is deterministic, so its output is cached once and only the random augmentation is applied per epoch. A baseline epoch was expected to take well under a minute on the laptop GPU; measured timings are in `reports/smoke_test.json`.
 
 **Optional:** train each model with 3 seeds and report mean ± std, so "EfficientNet beats the baseline" is backed by more than one run. It roughly triples training time.
