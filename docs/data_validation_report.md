@@ -1,5 +1,7 @@
 # Data validation report
 
+> **Update (before training):** a final check found 3 more same-image pairs filed under different labels, just below the copy threshold. Their 6 images were dropped, and the manifest now asserts that no near-identical or related pair crosses splits. Final counts are 4,087 images (train 2,861 / val 614 / test 612); see `docs/training_results.md` §1. The counts below are from before that check.
+
 Everything below was measured on the real download. Figures and tables are in `reports/data/`, the smoke-test output is in `reports/smoke_test.json`, and the scripts are in `scripts/`, run in this order: `scan_raw.py` → `duplicate_study.py` → `build_manifest.py` → `preprocessing_check.py` → `smoke_test.py`. The test split was not used for any decision.
 
 ## Decisions for you
