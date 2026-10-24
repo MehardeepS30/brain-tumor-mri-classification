@@ -1,6 +1,6 @@
 # Brain tumour MRI classification: a scratch CNN vs EfficientNet-B0, with Grad-CAM
 
-[![tests](https://github.com/Mehardeep30/brain-tumor-mri-classification/actions/workflows/tests.yml/badge.svg)](https://github.com/Mehardeep30/brain-tumor-mri-classification/actions/workflows/tests.yml) ![Python 3.13](https://img.shields.io/badge/python-3.13-blue) ![PyTorch 2.11](https://img.shields.io/badge/PyTorch-2.11-ee4c2c) [![License: MIT](https://img.shields.io/badge/code%20license-MIT-green)](LICENSE) [![Data: CC BY 4.0](https://img.shields.io/badge/data-CC%20BY%204.0-lightgrey)](https://creativecommons.org/licenses/by/4.0/)
+[![tests](https://github.com/MehardeepS30/brain-tumor-mri-classification/actions/workflows/tests.yml/badge.svg)](https://github.com/MehardeepS30/brain-tumor-mri-classification/actions/workflows/tests.yml) ![Python 3.13](https://img.shields.io/badge/python-3.13-blue) ![PyTorch 2.11](https://img.shields.io/badge/PyTorch-2.11-ee4c2c) [![License: MIT](https://img.shields.io/badge/code%20license-MIT-green)](LICENSE) [![Data: CC BY 4.0](https://img.shields.io/badge/data-CC%20BY%204.0-lightgrey)](https://creativecommons.org/licenses/by/4.0/)
 
 This project classifies 2D brain MRI slices into **glioma, meningioma, pituitary tumour, or no tumour**. It compares a small CNN trained from scratch with an ImageNet-pretrained EfficientNet-B0 fine-tuned in two stages. Recall is the main metric, because a missed tumour is the costly error. Grad-CAM is used to check where each model's evidence sits in the image.
 
