@@ -1,10 +1,23 @@
 """Evaluation: predictions, confusion matrix, per-class precision/recall, ROC/AUC."""
 
+from pathlib import Path
+
 import numpy as np
 import torch
 from sklearn.metrics import confusion_matrix, roc_auc_score, roc_curve
 
 from brain_tumor.classes import NUM_CLASSES
+
+
+def load_selected_model(run_dir, device):
+    """The checkpoint chosen on validation (best.pt) of a run, in eval mode."""
+    from brain_tumor.models import build_model
+    from brain_tumor.train import load_checkpoint
+
+    ck = load_checkpoint(Path(run_dir) / "best.pt", map_location=device)
+    model = build_model(ck["config"]["model"], pretrained=False).to(device)
+    model.load_state_dict(ck["model"])
+    return model.eval(), ck
 
 
 @torch.no_grad()

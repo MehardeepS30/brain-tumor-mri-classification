@@ -1,0 +1,206 @@
+{
+  "baseline": {
+    "best_epoch": 36,
+    "blank_pred_maps": 0,
+    "blank_true_class_maps": 0,
+    "head_area_share_median": 0.57,
+    "border_area_share": 0.187,
+    "groups": {
+      "all test": {
+        "n": 612,
+        "head_mass_median": 0.639,
+        "border_mass_median": 0.13,
+        "offhead_fg_median": 0.0003
+      },
+      "correct": {
+        "n": 489,
+        "head_mass_median": 0.653,
+        "border_mass_median": 0.126,
+        "offhead_fg_median": 0.0002
+      },
+      "misclassified": {
+        "n": 123,
+        "head_mass_median": 0.591,
+        "border_mass_median": 0.152,
+        "offhead_fg_median": 0.0005
+      },
+      "tumour called notumor": {
+        "n": 41,
+        "head_mass_median": 0.537,
+        "border_mass_median": 0.162,
+        "offhead_fg_median": 0.0039
+      },
+      "small tumour, correct": {
+        "n": 8,
+        "head_mass_median": 0.684,
+        "border_mass_median": 0.19,
+        "offhead_fg_median": 0.0007
+      },
+      "large tumour, correct": {
+        "n": 393,
+        "head_mass_median": 0.686,
+        "border_mass_median": 0.12,
+        "offhead_fg_median": 0.0002
+      },
+      "small tumour called notumor": {
+        "n": 28,
+        "head_mass_median": 0.533,
+        "border_mass_median": 0.18,
+        "offhead_fg_median": 0.0043
+      },
+      "notumor, correct": {
+        "n": 88,
+        "head_mass_median": 0.536,
+        "border_mass_median": 0.141,
+        "offhead_fg_median": 0.0019
+      }
+    }
+  },
+  "efficientnet_b0": {
+    "best_epoch": 15,
+    "blank_pred_maps": 0,
+    "blank_true_class_maps": 1,
+    "head_area_share_median": 0.57,
+    "border_area_share": 0.187,
+    "groups": {
+      "all test": {
+        "n": 612,
+        "head_mass_median": 0.881,
+        "border_mass_median": 0.029,
+        "offhead_fg_median": 0.0002
+      },
+      "correct": {
+        "n": 564,
+        "head_mass_median": 0.881,
+        "border_mass_median": 0.029,
+        "offhead_fg_median": 0.0002
+      },
+      "misclassified": {
+        "n": 48,
+        "head_mass_median": 0.872,
+        "border_mass_median": 0.021,
+        "offhead_fg_median": 0.0004
+      },
+      "tumour called notumor": {
+        "n": 10,
+        "head_mass_median": 0.494,
+        "border_mass_median": 0.248,
+        "offhead_fg_median": 0.0052
+      },
+      "small tumour, correct": {
+        "n": 28,
+        "head_mass_median": 0.91,
+        "border_mass_median": 0.034,
+        "offhead_fg_median": 0.0003
+      },
+      "large tumour, correct": {
+        "n": 441,
+        "head_mass_median": 0.902,
+        "border_mass_median": 0.017,
+        "offhead_fg_median": 0.0002
+      },
+      "small tumour called notumor": {
+        "n": 6,
+        "head_mass_median": 0.428,
+        "border_mass_median": 0.251,
+        "offhead_fg_median": 0.0052
+      },
+      "notumor, correct": {
+        "n": 95,
+        "head_mass_median": 0.632,
+        "border_mass_median": 0.151,
+        "offhead_fg_median": 0.0017
+      }
+    }
+  },
+  "efficientnet_b0_small_missed": [
+    {
+      "path": "Training/meningioma/Tr-me_472.jpg",
+      "label": "meningioma",
+      "width": 212,
+      "height": 237,
+      "conf": 0.4169999957084656,
+      "p_true": 0.3199999928474426,
+      "head_mass_pred": 0.353,
+      "border_mass_pred": 0.302,
+      "offhead_fg_pred": 0.0,
+      "head_mass_true": 0.851,
+      "blank_true": false,
+      "baseline_pred": "notumor"
+    },
+    {
+      "path": "Training/meningioma/Tr-me_715.jpg",
+      "label": "meningioma",
+      "width": 330,
+      "height": 355,
+      "conf": 0.8849999904632568,
+      "p_true": 0.014999999664723873,
+      "head_mass_pred": 0.61,
+      "border_mass_pred": 0.27,
+      "offhead_fg_pred": 0.01,
+      "head_mass_true": 0.984,
+      "blank_true": false,
+      "baseline_pred": "notumor"
+    },
+    {
+      "path": "Training/meningioma/Tr-me_867.jpg",
+      "label": "meningioma",
+      "width": 257,
+      "height": 320,
+      "conf": 0.7400000095367432,
+      "p_true": 0.24199999868869781,
+      "head_mass_pred": 0.436,
+      "border_mass_pred": 0.178,
+      "offhead_fg_pred": 0.01,
+      "head_mass_true": 0.853,
+      "blank_true": false,
+      "baseline_pred": "notumor"
+    },
+    {
+      "path": "Training/meningioma/Tr-me_957.jpg",
+      "label": "meningioma",
+      "width": 341,
+      "height": 377,
+      "conf": 0.6060000061988831,
+      "p_true": 0.2370000034570694,
+      "head_mass_pred": 0.42,
+      "border_mass_pred": 0.239,
+      "offhead_fg_pred": 0.005,
+      "head_mass_true": 0.887,
+      "blank_true": false,
+      "baseline_pred": "notumor"
+    },
+    {
+      "path": "Testing/glioma/Te-gl_318.jpg",
+      "label": "glioma",
+      "width": 197,
+      "height": 229,
+      "conf": 0.9990000128746033,
+      "p_true": 0.0010000000474974513,
+      "head_mass_pred": 0.628,
+      "border_mass_pred": 0.132,
+      "offhead_fg_pred": 0.0,
+      "head_mass_true": 0.948,
+      "blank_true": false,
+      "baseline_pred": "meningioma"
+    },
+    {
+      "path": "Testing/glioma/Te-gl_43.jpg",
+      "label": "glioma",
+      "width": 236,
+      "height": 236,
+      "conf": 0.5479999780654907,
+      "p_true": 0.2240000069141388,
+      "head_mass_pred": 0.249,
+      "border_mass_pred": 0.263,
+      "offhead_fg_pred": 0.005,
+      "head_mass_true": 0.637,
+      "blank_true": false,
+      "baseline_pred": "notumor"
+    }
+  ],
+  "test_size_counts": {
+    "small_tumour": 42,
+    "large_tumour": 467
+  }
+}

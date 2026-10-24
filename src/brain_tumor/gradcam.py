@@ -6,6 +6,7 @@ For class c with score y^c and target-layer activations A^k (k = channel):
 L^c is upsampled to the input size and scaled to [0, 1] per image.
 """
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 
@@ -53,3 +54,37 @@ class GradCAM:
         cam = F.interpolate(cam, size=x.shape[2:], mode="bilinear", align_corners=False)[:, 0]
         peak = cam.flatten(1).amax(dim=1).clamp_min(1e-12)
         return cam / peak[:, None, None], class_idx.detach()
+
+
+# ---------------------------------------------------------------- analysis helpers
+# These turn a heatmap into simple location measurements. They describe where the
+# map puts its weight; they do not show what the model has learned.
+
+
+def is_blank(heatmap):
+    """True when the map is all zero: no positive evidence for the class (see GradCAM)."""
+    return float(np.max(heatmap)) <= 0
+
+
+def cam_mass_inside(heatmap, mask):
+    """Share of the map's total weight that falls inside `mask` (NaN for a blank map)."""
+    total = float(np.sum(heatmap))
+    return float(np.sum(heatmap[mask]) / total) if total > 0 else float("nan")
+
+
+def border_mass(heatmap, width):
+    """Share of the map's weight within `width` pixels of the image edge (NaN if blank)."""
+    inner = np.zeros(heatmap.shape, dtype=bool)
+    inner[width:-width, width:-width] = True
+    return 1.0 - cam_mass_inside(heatmap, inner) if not is_blank(heatmap) else float("nan")
+
+
+def overlay(gray, heatmap, alpha=0.45, cmap="jet"):
+    """RGB image in [0, 1]: greyscale `gray` (values in [0, 1]) blended with the colour-
+    mapped heatmap, weighted by the heatmap itself so cold regions stay unchanged."""
+    import matplotlib
+
+    g = np.repeat(np.clip(gray, 0, 1)[..., None], 3, axis=2)
+    colour = matplotlib.colormaps[cmap](np.clip(heatmap, 0, 1))[..., :3]
+    w = alpha * np.clip(heatmap, 0, 1)[..., None]
+    return np.clip((1 - w) * g + w * colour, 0, 1)
