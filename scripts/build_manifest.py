@@ -5,7 +5,9 @@ Rules (evidence in reports/data from scripts/duplicate_study.py):
   2. Copies: same SHA-256, or flip-aware pHash distance <= COPY_MAX_DIST with
      aligned pixel correlation >= COPY_MIN_CORR. A copy cluster with more than one
      label is dropped entirely (the true label is unknown); otherwise one image
-     (the largest) is kept.
+     (the largest) is kept. Pairs just short of the copy rule that are still
+     near-identical (corr >= 0.95 or SSIM >= 0.9) but carry different labels are
+     dropped too.
   3. Related groups (patient proxy, deliberately over-inclusive): pHash distance
      <= 4, or distance <= 6 with SSIM >= 0.6, or SSIM >= 0.7 (distance <= 8).
      Only same-label pairs are linked; cross-label pairs are listed for review.
@@ -28,12 +30,20 @@ from brain_tumor.splits import SPLITS, group_stratified_split
 
 COPY_MAX_DIST = 2
 COPY_MIN_CORR = 0.99
+NEAR_MIN_CORR = 0.95
+NEAR_MIN_SSIM = 0.9
 LARGE_GROUP = 5
 FRACTIONS = (0.70, 0.15, 0.15)
 
 
 def related(pairs):
     return (pairs.dist <= 4) | ((pairs.dist <= 6) & (pairs.ssim >= 0.6)) | (pairs.ssim >= 0.7)
+
+
+def near_identical(pairs):
+    """High-confidence same-image pairs: in the study, fewer than 0.3% of such pairs
+    carry different labels, against 75% for random pairs."""
+    return (pairs["corr"] >= NEAR_MIN_CORR) | (pairs.ssim >= NEAR_MIN_SSIM)
 
 
 def _edges(pairs):
@@ -88,6 +98,18 @@ def main():
     dropped_copy = live & ~keep
     reason[dropped_copy] = ["copy of " + rep_of[c] for c in copy_id[dropped_copy]]
 
+    # 2b. near-identical images under different labels that just miss the copy rule
+    # (e.g. a mirrored re-save at corr 0.98): the label is unknown, so drop both
+    kept = (reason == "").values
+    pk = pairs[kept[pairs.i] & kept[pairs.j]]
+    hc = pk[pk.cross_label & near_identical(pk)]
+    for r in hc.itertuples():
+        conflicts.append({"kind": "near-identical pair with different labels (both dropped)", "id": -1,
+                          "paths": f"{r.path_i};{r.path_j}", "labels": f"{r.label_i};{r.label_j}",
+                          "dist": r.dist, "ssim": round(r.ssim, 3), "corr": r.corr})
+    both = np.unique(np.concatenate([hc.i.values, hc.j.values])).astype(int)
+    reason.iloc[both] = "label conflict: near-identical image under another label"
+
     # 3. related groups over the kept images
     kept = (reason == "").values
     pk = pairs[kept[pairs.i] & kept[pairs.j] & related(pairs)]
@@ -116,8 +138,18 @@ def main():
           example=("path", "first")).sort_values("size", ascending=False)
      .to_csv(reports / "large_groups.csv"))
 
-    # leakage check: every group in exactly one split
+    # leakage checks: every group in one split, and no near-identical or related
+    # pair of kept images (any labels) sits in two different splits
     assert (man.groupby("dup_group_id").split.nunique() == 1).all()
+    split_of = dict(zip(man.path, man.split))
+    kp = pairs[pairs.path_i.isin(split_of) & pairs.path_j.isin(split_of)]
+    across = kp[kp.path_i.map(split_of) != kp.path_j.map(split_of)]
+    leaks = across[near_identical(across) | (related(across) & ~across.cross_label)]
+    assert leaks.empty, leaks
+    cross_split_stats = {"candidate_pairs_across_splits": int(len(across)),
+                         "max_ssim_across_splits": round(float(across.ssim.max()), 3),
+                         "max_corr_across_splits": round(float(across["corr"].max()), 3),
+                         "near_identical_or_related_across_splits": 0}
 
     by_reason = pd.Series(np.where(reason[~kept].str.startswith("copy of"), "copy of a kept image",
                                    reason[~kept])).value_counts()
@@ -137,6 +169,7 @@ def main():
         "split_by_class": {s: man[man.split == s].label.value_counts().reindex(CLASS_NAMES).to_dict() for s in SPLITS},
         "class_weights_train": class_weights(man.label[man.split == "train"].tolist()),
         "groups_spanning_splits": 0,
+        **cross_split_stats,
         "seed": args.seed,
     }
     (reports / "data_stats.json").write_text(json.dumps(stats, indent=2, default=int))

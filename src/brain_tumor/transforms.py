@@ -1,6 +1,7 @@
 """Preprocessing: crop to the brain, pad to square, resize, normalise; train-only augmentation."""
 
 import numpy as np
+import torch
 from PIL import Image, ImageOps
 from scipy import ndimage
 from skimage.filters import threshold_otsu
@@ -83,6 +84,31 @@ class ToRGB:
         return img.convert("RGB")
 
 
+class RandomResolution:
+    """With probability p, downscale by a random factor in `scale` and resize back.
+
+    Training only. Most "no tumour" originals are ~230 px while the other classes are
+    mostly 512 px, so after resizing to 224 sharpness alone hints at the class. Randomly
+    softening every class's images makes that cue unreliable. Uses torch's RNG so it
+    follows torch.manual_seed like the other augmentations."""
+
+    def __init__(self, p=0.5, scale=(0.35, 1.0)):
+        self.p = p
+        self.scale = tuple(scale)
+
+    def __call__(self, img):
+        if float(torch.rand(1)) >= self.p:
+            return img
+        lo, hi = self.scale
+        s = lo + (hi - lo) * float(torch.rand(1))
+        w, h = img.size
+        small = img.resize((max(1, round(w * s)), max(1, round(h * s))), Image.BILINEAR)
+        return small.resize((w, h), Image.BILINEAR)
+
+    def __repr__(self):
+        return f"RandomResolution(p={self.p}, scale={self.scale})"
+
+
 def _deterministic_steps():
     return [ToGray(), CropToBrain(margin=0.05), PadToSquare(), T.Resize((IMAGE_SIZE, IMAGE_SIZE))]
 
@@ -93,10 +119,13 @@ def preprocess_for_cache(img):
 
 
 def build_transforms(train, cached=False):
-    """Deterministic preprocessing for eval; adds hflip, +-10 deg rotation and
-    +-10% brightness/contrast for training only. With cached=True the input is
+    """Deterministic preprocessing for eval; adds resolution jitter, hflip, +-10 deg
+    rotation and +-10% brightness/contrast for training only. With cached=True the input is
     already the output of preprocess_for_cache, so those steps are skipped."""
-    steps = ([] if cached else _deterministic_steps()) + [ToRGB()]
+    steps = [] if cached else _deterministic_steps()
+    if train:
+        steps.append(RandomResolution(p=0.5, scale=(0.35, 1.0)))
+    steps.append(ToRGB())
     if train:
         steps += [
             T.RandomHorizontalFlip(p=0.5),

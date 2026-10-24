@@ -10,6 +10,7 @@ from torchvision.models import EfficientNet_B0_Weights
 from brain_tumor.transforms import (
     NORM_MEAN,
     NORM_STD,
+    RandomResolution,
     ToRGB,
     build_transforms,
     crop_to_brain,
@@ -158,7 +159,7 @@ def test_train_output_is_float_3x224x224():
 
 # ---------------------------------------------------------------- augmentation only in training
 
-RANDOM_OPS = (T.RandomHorizontalFlip, T.RandomVerticalFlip, T.RandomRotation, T.ColorJitter)
+RANDOM_OPS = (T.RandomHorizontalFlip, T.RandomVerticalFlip, T.RandomRotation, T.ColorJitter, RandomResolution)
 
 
 def test_eval_transform_has_no_random_ops_and_is_deterministic():
@@ -175,7 +176,9 @@ def test_eval_transform_has_no_random_ops_and_is_deterministic():
 def test_train_transform_has_the_agreed_augmentations_only():
     tf = build_transforms(train=True)
     kinds = {type(t) for t in tf.transforms if isinstance(t, RANDOM_OPS)}
-    assert kinds == {T.RandomHorizontalFlip, T.RandomRotation, T.ColorJitter}
+    assert kinds == {RandomResolution, T.RandomHorizontalFlip, T.RandomRotation, T.ColorJitter}
+    res = next(t for t in tf.transforms if isinstance(t, RandomResolution))
+    assert res.p == 0.5 and res.scale == (0.35, 1.0)
     rot = next(t for t in tf.transforms if isinstance(t, T.RandomRotation))
     assert tuple(rot.degrees) == (-10.0, 10.0)
     cj = next(t for t in tf.transforms if isinstance(t, T.ColorJitter))
@@ -196,7 +199,7 @@ def test_cached_eval_pipeline_matches_full_pipeline():
 def test_cached_train_pipeline_has_only_augmentation_and_tensor_steps():
     tf = build_transforms(train=True, cached=True)
     kinds = [type(t) for t in tf.transforms]
-    assert kinds == [ToRGB, T.RandomHorizontalFlip, T.RandomRotation, T.ColorJitter, T.ToTensor, T.Normalize]
+    assert kinds == [RandomResolution, ToRGB, T.RandomHorizontalFlip, T.RandomRotation, T.ColorJitter, T.ToTensor, T.Normalize]
 
 
 def test_train_transform_is_actually_random():
@@ -207,3 +210,36 @@ def test_train_transform_is_actually_random():
         torch.manual_seed(s)
         outs.append(tf(img))
     assert any(not torch.equal(outs[0], o) for o in outs[1:])
+
+
+def _texture(size=224, seed=0):
+    rng = np.random.default_rng(seed)
+    return Image.fromarray(rng.integers(0, 256, (size, size), dtype=np.uint8))
+
+
+def _high_freq_energy(img):
+    a = np.asarray(img, dtype=np.float64)
+    return np.abs(np.diff(a, axis=1)).mean()
+
+
+def test_random_resolution_blurs_at_low_scale_and_keeps_size():
+    img = _texture()
+    out = RandomResolution(p=1.0, scale=(0.35, 0.35))(img)
+    assert out.size == img.size and out.mode == img.mode
+    assert _high_freq_energy(out) < 0.5 * _high_freq_energy(img)
+
+
+def test_random_resolution_is_identity_when_not_applied():
+    img = _texture()
+    assert np.array_equal(np.asarray(RandomResolution(p=0.0)(img)), np.asarray(img))
+
+
+def test_random_resolution_follows_torch_seed():
+    img = _texture()
+    tf = RandomResolution(p=0.5)
+    torch.manual_seed(3)
+    a = [np.asarray(tf(img)) for _ in range(6)]
+    torch.manual_seed(3)
+    b = [np.asarray(tf(img)) for _ in range(6)]
+    assert all(np.array_equal(x, y) for x, y in zip(a, b))
+    assert len({x.tobytes() for x in a}) > 1
