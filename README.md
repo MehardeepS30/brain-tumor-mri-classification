@@ -170,7 +170,7 @@ The shared training loop is `src/brain_tumor/train.py`, and the configs are [`co
 | Batch size, precision | 32, fp16 autocast + GradScaler | same |
 | Max epochs / patience | 40 / 8 | 5 frozen + 25 / 6 (fine-tune stage only) |
 
-- **Class weights:** $\mathcal{L}=-\frac1B\sum_i w_{y_i}\log\operatorname{softmax}(z_i)_{y_i}$ with $w_c=N/(4n_c)$, computed from the train split only: glioma 0.677, meningioma 1.176, notumor 1.484, pituitary 1.000.
+- **Class weights:** $\mathcal{L}=-\frac1B\sum_i w_{y_i}\log\mathrm{softmax}(z_i)_{y_i}$ with $w_c=N/(4n_c)$, computed from the train split only: glioma 0.677, meningioma 1.176, notumor 1.484, pituitary 1.000.
 - **Model selection and early stopping:** both use **validation macro recall**, with a minimum improvement of 0.002 and ties broken by lower validation loss. The test split is never loaded during training, and a test checks this.
 - **Checkpoints:**
   - `best.pt` and `last.pt` store the model, optimiser, scheduler, scaler and counters.
@@ -243,7 +243,7 @@ Validation results for comparison: baseline 0.832 (0.804–0.859), EfficientNet 
 
 **Method** (`src/brain_tumor/gradcam.py`, Selvaraju et al., 2017). For class $c$ and target-layer activations $A^k$:
 
-$$\alpha^c_k=\frac1{HW}\sum_{i,j}\frac{\partial y^c}{\partial A^k_{ij}},\qquad L^c=\operatorname{ReLU}\Big(\sum_k\alpha^c_kA^k\Big)$$
+$$\alpha^c_k=\frac1{HW}\sum_{i,j}\frac{\partial y^c}{\partial A^k_{ij}},\qquad L^c=\mathrm{ReLU}\Big(\sum_k\alpha^c_kA^k\Big)$$
 
 $L^c$ is upsampled to 224×224 and scaled to [0, 1] per image. Implementation details:
 - **Target layer:** each model's `gradcam_layer` (`features[-1]`), which is 14×14 for the baseline and 7×7 for EfficientNet.
